@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken";
 import { HttpError } from "../models/error.js";
 
 const authMiddleware = async (req, res, next) => {
-  const authorization = req.headers.authorization || req.headers.Authorization;  // use the correct spelling
+  const authorization = req.headers.authorization || req.headers.Authorization;  
 
   if (authorization && authorization.startsWith("Bearer ")) {
     const token = authorization.split(" ")[1]; // Extract the token
