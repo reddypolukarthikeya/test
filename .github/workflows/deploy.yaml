@@ -56,6 +56,6 @@ jobs:
 
             # Start or re  start the Node.js application using PM2    
             npm install -g pm2 
-            pm2 start index.js --name "my-app" --watch --env production -f || pm2 restart "my-app"
+            pm2 start /home/ec2-user/test/myapp/index.js --name "my-app" --watch --env production -f || pm2 restart "my-app"
             pm2 save --force
           EOF
