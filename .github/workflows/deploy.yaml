@@ -1,0 +1,60 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Step 2: Set up AWS CLI credentials
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # Step 3: Set up SSH key
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      # Step 4: SSH into EC2 and deploy the application
+      - name: SSH into EC2 and deploy code
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
+            # Enable debug mode to trace commands
+            set -x
+
+            # Navigate to the application directory or create it
+            mkdir -p ~/test/my-app
+            cd ~/test/my-app
+
+            # Clone the repository if it doesn't exist
+            if [ ! -d ".git" ]; then
+              git clone https://github.com/reddypolukarthikeya/UnQue-2.0.git .
+            fi
+
+            # Pull the latest changes from the main branch
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Install Node.js dependencies
+            npm install --production
+            npm install bcryptjs
+            npm audit fix --force
+
+            # Start or re  start the Node.js application using PM2    
+            pm2 start index.js --name "my-app" --watch --env production -f || pm2 restart "my-app"
+            pm2 save
+          EOF
