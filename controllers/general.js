@@ -4,35 +4,84 @@ import {Appointment} from "../models/appointment.js"
 import mongoose from 'mongoose';
 import moment from 'moment';  
 
-const getAvailableSlots = async (req, res, next) => {
-    try {
-        const { professorId } = req.params;
+// const getAvailableSlots = async (req, res, next) => {
+//     try {
+//         const { professorId } = req.params;
 
         
-        console.log("Professor ID:", professorId, "Type:", typeof professorId);
+//         console.log("Professor ID:", professorId, "Type:", typeof professorId);
 
-        // Check if professorId is valid
-        if (!mongoose.Types.ObjectId.isValid(professorId)) {
-            return next(new HttpError("Invalid professor ID format", 400));
-        }
+//         // Check if professorId is valid
+//         if (!mongoose.Types.ObjectId.isValid(professorId)) {
+//             return next(new HttpError("Invalid professor ID format", 400));
+//         }
 
-        // Find availability slots for the professor
-        const availability = await Availability.find({ professorId: new mongoose.Types.ObjectId(professorId) });
+//         // Find availability slots for the professor
+//         const availability = await Availability.find({ professorId: new mongoose.Types.ObjectId(professorId) });
 
-        if (!availability || availability.length === 0) {
-            return next(new HttpError("No availability found for this professor", 404));
-        }
+//         if (!availability || availability.length === 0) {
+//             return next(new HttpError("No availability found for this professor", 404));
+//         }
 
-        // Format the available slots using moment.js
-        const availableSlots = availability.map(avail => ({
-            StartTime: moment(avail.startTime).format('MMMM Do YYYY, h:mm:ss a'),
-            EndTime: moment(avail.endTime).format('MMMM Do YYYY, h:mm:ss a'),
-        }));
+//         // Format the available slots using moment.js
+//         const availableSlots = availability.map(avail => ({
+//             StartTime: moment(avail.startTime).format('MMMM Do YYYY, h:mm:ss a'),
+//             EndTime: moment(avail.endTime).format('MMMM Do YYYY, h:mm:ss a'),
+//         }));
 
-        res.status(200).json({ availableSlots });
-    } catch (error) {
-        return next(new HttpError("Failed to fetch availability", 500));
-    }
+//         res.status(200).json({ availableSlots });
+//     } catch (error) {
+//         return next(new HttpError("Failed to fetch availability", 500));
+//     }
+// };
+const getAvailableSlots = async (req, res, next) => {
+  try {
+      const { professorId } = req.params;
+      const { date } = req.query; // Get the date dynamically from the query
+
+      console.log("Professor ID:", professorId, "Type:", typeof professorId);
+      console.log("Selected Date:", date);
+
+      if (!mongoose.Types.ObjectId.isValid(professorId)) {
+          return next(new HttpError("Invalid professor ID format", 400));
+      }
+
+      if (!date) {
+          return next(new HttpError("Date query parameter is required (format: YYYY-MM-DD)", 400));
+      }
+
+      // Convert the selected date to a Moment.js object
+      const selectedDate = moment(date, "YYYY-MM-DD");
+
+      // Ensure the date is valid
+      if (!selectedDate.isValid()) {
+          return next(new HttpError("Invalid date format. Use YYYY-MM-DD.", 400));
+      }
+
+      // Find availability slots for the professor
+      const availability = await Availability.find({ professorId: new mongoose.Types.ObjectId(professorId) });
+
+      if (!availability || availability.length === 0) {
+          return next(new HttpError("No availability found for this professor", 404));
+      }
+
+      // Filter available slots based on the selected date
+      const availableSlots = availability
+          .filter(avail => moment(avail.startTime).isSame(selectedDate, 'day'))
+          .map(avail => ({
+              StartTime: moment(avail.startTime).format('MMMM Do YYYY, h:mm:ss a'),
+              EndTime: moment(avail.endTime).format('MMMM Do YYYY, h:mm:ss a'),
+          }));
+
+      if (availableSlots.length === 0) {
+          return next(new HttpError("No available slots for the selected date", 404));
+      }
+
+      res.status(200).json({ availableSlots });
+  } catch (error) {
+      console.error("Error fetching availability:", error);
+      return next(new HttpError("Failed to fetch availability", 500));
+  }
 };
 
 const bookAppointment = async (req, res, next) => {
